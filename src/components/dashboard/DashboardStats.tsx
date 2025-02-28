@@ -1,23 +1,28 @@
 interface Order {
-  id: string  // Changed from number to string
-  status: string
-  price: string
+  id: string;
+  status: string;
+  estimatedBudget: string;
 }
 
 interface DashboardStatsProps {
-  orders: Order[]
+  orders: Order[];
 }
 
 const DashboardStats = ({ orders }: DashboardStatsProps) => {
   const getStats = () => {
     const stats = {
-      total: orders.length,
-      pending: orders.filter(o => o.status === 'pending').length,
-      inProgress: orders.filter(o => o.status === 'in-progress').length,
-      completed: orders.filter(o => o.status === 'completed').length,
+      total: orders?.length || 0,
+      pending: orders?.filter(o => o.status === 'pending').length || 0,
+      inProgress: orders?.filter(o => o.status === 'in-progress').length || 0,
+      completed: orders?.filter(o => o.status === 'completed').length || 0,
       totalEarnings: orders
-        .filter(o => o.status === 'completed')
-        .reduce((sum, order) => sum + parseInt(order.price.replace(/[^0-9]/g, '')), 0)
+        ?.filter(o => o.status === 'completed')
+        .reduce((sum, order) => {
+          // Safely parse the budget value
+          const budget = order.estimatedBudget || '0'
+          const numericValue = parseFloat(budget.replace(/[^0-9.]/g, '')) || 0
+          return sum + numericValue
+        }, 0) || 0
     }
     return stats
   }

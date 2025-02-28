@@ -1,19 +1,19 @@
 "use client"
 
-import { ChangeEvent, useState } from 'react'
+import { ChangeEvent, useState, useEffect } from 'react'
 import Image from 'next/image'
 
 interface CustomOrderFormProps {
   onSubmit: (data: any) => void
   loading: boolean
+  initialCustomerName?: string
 }
 
-// Changed to explicitly return JSX.Element
-const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading }) => {
+const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading, initialCustomerName = "" }) => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    customerName: "",
+    customerName: initialCustomerName,
     measurements: {
       chest: "",
       waist: "",
@@ -31,41 +31,370 @@ const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading }) 
     preferredDeliveryDate: "",
   })
 
-  // ...existing handleImageChange and handleChange functions...
+  useEffect(() => {
+    if (initialCustomerName) {
+      setFormData(prev => ({
+        ...prev,
+        customerName: initialCustomerName
+      }))
+    }
+  }, [initialCustomerName])
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setSelectedImage(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.')
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...(prev[parent as keyof typeof prev] as Record<string, string>),
+          [child]: value
+        }
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      ...formData,
-      imageFile: selectedImage
-    })
-  }
 
-    function handleChange(event: ChangeEvent<HTMLInputElement>): void {
-        throw new Error('Function not implemented.')
+    // Form validation
+    if (!formData.garmentType || !formData.fabricType || !formData.estimatedBudget) {
+      alert('Please fill in all required fields')
+      return
     }
 
+    // Validate measurements
+    const measurementValues = Object.values(formData.measurements)
+    if (measurementValues.some(value => !value)) {
+      alert('Please provide all measurements')
+      return
+    }
+
+    // Prepare data for submission
+    const submitData = {
+      ...formData,
+      orderDate: new Date().toISOString(),
+      imageFile: selectedImage,
+      status: 'pending',
+      // Ensure measurements are strings
+      measurements: Object.entries(formData.measurements).reduce((acc, [key, value]) => ({
+        ...acc,
+        [key]: String(value)
+      }), {})
+    }
+
+    try {
+      await onSubmit(submitData)
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      alert('Failed to submit order. Please try again.')
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        {/* Add your form fields here */}
-        <input
-          type="text"
-          name="customerName"
-          value={formData.customerName}
-          onChange={handleChange}
-          placeholder="Customer Name"
-          className="form-input"
-        />
-        {/* Add other form fields similarly */}
+    <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Custom Order Details</h2>
+      
+      {/* Customer Information */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">Customer Information</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        
+          <div>
+            <label htmlFor="estimatedBudget" className="block text-sm font-medium text-gray-700 mb-1">Estimated Budget</label>
+            <input
+              type="text"
+              id="estimatedBudget"
+              name="estimatedBudget"
+              value={formData.estimatedBudget}
+              onChange={handleChange}
+              placeholder="E.g. $100-$150"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="preferredDeliveryDate" className="block text-sm font-medium text-gray-700 mb-1">Preferred Delivery Date</label>
+            <input
+              type="date"
+              id="preferredDeliveryDate"
+              name="preferredDeliveryDate"
+              value={formData.preferredDeliveryDate}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
       </div>
-      <button 
-        type="submit" 
-        disabled={loading}
-        className="w-full btn-primary"
-      >
-        {loading ? 'Submitting...' : 'Submit Order'}
-      </button>
+      
+      {/* Garment Details */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">Garment Details</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label htmlFor="garmentType" className="block text-sm font-medium text-gray-700 mb-1">Garment Type</label>
+            <select
+              id="garmentType"
+              name="garmentType"
+              value={formData.garmentType}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select garment type</option>
+              <option value="shirt">Shirt</option>
+              <option value="dress">Dress</option>
+              <option value="pants">Pants</option>
+              <option value="skirt">Skirt</option>
+              <option value="jacket">Jacket</option>
+              <option value="suit">Suit</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          
+          <div>
+            <label htmlFor="fabricType" className="block text-sm font-medium text-gray-700 mb-1">Fabric Type</label>
+            <select
+              id="fabricType"
+              name="fabricType"
+              value={formData.fabricType}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select fabric type</option>
+              <option value="cotton">Cotton</option>
+              <option value="linen">Linen</option>
+              <option value="silk">Silk</option>
+              <option value="wool">Wool</option>
+              <option value="polyester">Polyester</option>
+              <option value="blend">Blend</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          
+          <div>
+            <label htmlFor="color" className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+            <input
+              type="text"
+              id="color"
+              name="color"
+              value={formData.color}
+              onChange={handleChange}
+              placeholder="Specify color"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Measurements */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">Measurements (in inches)</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div>
+            <label htmlFor="chest" className="block text-sm font-medium text-gray-700 mb-1">Chest</label>
+            <input
+              type="text"
+              id="chest"
+              name="measurements.chest"
+              value={formData.measurements.chest}
+              onChange={handleChange}
+              placeholder="E.g. 38"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="waist" className="block text-sm font-medium text-gray-700 mb-1">Waist</label>
+            <input
+              type="text"
+              id="waist"
+              name="measurements.waist"
+              value={formData.measurements.waist}
+              onChange={handleChange}
+              placeholder="E.g. 32"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="hips" className="block text-sm font-medium text-gray-700 mb-1">Hips</label>
+            <input
+              type="text"
+              id="hips"
+              name="measurements.hips"
+              value={formData.measurements.hips}
+              onChange={handleChange}
+              placeholder="E.g. 40"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="shoulders" className="block text-sm font-medium text-gray-700 mb-1">Shoulders</label>
+            <input
+              type="text"
+              id="shoulders"
+              name="measurements.shoulders"
+              value={formData.measurements.shoulders}
+              onChange={handleChange}
+              placeholder="E.g. 18"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="sleeves" className="block text-sm font-medium text-gray-700 mb-1">Sleeves</label>
+            <input
+              type="text"
+              id="sleeves"
+              name="measurements.sleeves"
+              value={formData.measurements.sleeves}
+              onChange={handleChange}
+              placeholder="E.g. 24"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="length" className="block text-sm font-medium text-gray-700 mb-1">Length</label>
+            <input
+              type="text"
+              id="length"
+              name="measurements.length"
+              value={formData.measurements.length}
+              onChange={handleChange}
+              placeholder="E.g. 28"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="neck" className="block text-sm font-medium text-gray-700 mb-1">Neck</label>
+            <input
+              type="text"
+              id="neck"
+              name="measurements.neck"
+              value={formData.measurements.neck}
+              onChange={handleChange}
+              placeholder="E.g. 16"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Reference Image */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">Reference Image</h3>
+        <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
+          {imagePreview ? (
+            <div className="space-y-4">
+              <div className="relative h-64 w-full max-w-md mx-auto">
+                <Image 
+                  src={imagePreview} 
+                  alt="Reference image preview"
+                  fill
+                  style={{ objectFit: 'contain' }}
+                  className="rounded-md"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedImage(null)
+                  setImagePreview(null)
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Remove Image
+              </button>
+            </div>
+          ) : (
+            <div>
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <p className="mt-1 text-sm text-gray-500">Upload a reference image for your custom design</p>
+              <div className="mt-4">
+                <label
+                  htmlFor="image-upload"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
+                >
+                  Choose File
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Special Instructions */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-700">Special Instructions</h3>
+        <div>
+          <textarea
+            id="specialInstructions"
+            name="specialInstructions"
+            value={formData.specialInstructions}
+            onChange={handleChange}
+            rows={4}
+            placeholder="Please provide any special requirements, design details, or additional information that will help us create your custom order exactly as you envision it."
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          ></textarea>
+        </div>
+      </div>
+      
+      {/* Submit Button */}
+      <div className="pt-4">
+        <button 
+          type="submit" 
+          disabled={loading}
+          className="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Submitting...
+            </span>
+          ) : 'Submit Custom Order'}
+        </button>
+      </div>
     </form>
   )
 }

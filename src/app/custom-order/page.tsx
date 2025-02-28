@@ -2,19 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { db, auth } from '@/lib/firebase'
-import { collection, addDoc } from 'firebase/firestore'
+import { collection, addDoc, doc, getDoc, updateDoc, runTransaction } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import CustomOrderForm from '@/components/orders/CustomOrderForm'  // Changed from named import to default import
+import CustomOrderForm from '@/components/orders/CustomOrderForm'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-const storage = getStorage();
+const storage = getStorage()
 
 export default function CustomOrder() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userName, setUserName] = useState("")
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -22,6 +23,19 @@ export default function CustomOrder() {
     })
 
     return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (auth.currentUser) {
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid))
+        if (userDoc.exists()) {
+          setUserName(userDoc.data().name)
+        }
+      }
+    }
+
+    fetchUserName()
   }, [])
 
   const handleSubmit = async (formData: any) => {
@@ -33,34 +47,58 @@ export default function CustomOrder() {
         throw new Error("Please login to place an order")
       }
 
+      // Generate order number using transaction
+      const orderNumber = await runTransaction(db, async (transaction) => {
+        const counterRef = doc(db, 'counters', 'orders')
+        const counterDoc = await transaction.get(counterRef)
+        
+        let newNumber = 1
+        if (counterDoc.exists()) {
+          newNumber = (counterDoc.data().count || 0) + 1
+          transaction.update(counterRef, { count: newNumber })
+        } else {
+          transaction.set(counterRef, { count: 1 })
+        }
+        
+        return newNumber
+      })
+
+      // Handle image upload
       let imageUrl = null
-      
-      // Upload image if exists
       if (formData.imageFile) {
         const imageRef = ref(storage, `orderImages/${auth.currentUser.uid}/${Date.now()}-${formData.imageFile.name}`)
-        const uploadResult = await uploadBytes(imageRef, formData.imageFile)
-        imageUrl = await getDownloadURL(uploadResult.ref)
+        await uploadBytes(imageRef, formData.imageFile)
+        imageUrl = await getDownloadURL(imageRef)
       }
 
-      // Add order to Firestore
+      // Prepare order data
       const orderData = {
-        ...formData,
-        imageUrl,
-        createdAt: new Date().toISOString(),
-        status: 'pending',
-        customerId: auth.currentUser.uid,
+        orderNumber: `Order No ${orderNumber}`,
+        customerName: userName || formData.customerName, // Use userName if available, fallback to form data
         customerEmail: auth.currentUser.email,
+        customerId: auth.currentUser.uid,
+        imageUrl,
+        garmentType: formData.garmentType,
+        fabricType: formData.fabricType,
+        color: formData.color,
+        measurements: formData.measurements,
+        specialInstructions: formData.specialInstructions || '',
+        estimatedBudget: formData.estimatedBudget,
+        preferredDeliveryDate: formData.preferredDeliveryDate,
+        orderDate: new Date().toISOString(),
+        status: 'pending',
+        createdAt: new Date().toISOString()
       }
 
-      // Remove the file object before storing in Firestore
-      delete orderData.imageFile
-
+      // Save to Firestore
       const docRef = await addDoc(collection(db, "orders"), orderData)
-      
+      console.log("Order added with ID: ", docRef.id)
+
+      // Redirect to confirmation page
       router.push(`/order-confirmation/${docRef.id}`)
     } catch (error: any) {
-      setError(error.message)
-      console.error("Error adding order: ", error)
+      console.error("Error adding order:", error)
+      setError(error.message || "Failed to place order")
     } finally {
       setLoading(false)
     }
@@ -106,7 +144,11 @@ export default function CustomOrder() {
             {error}
           </div>
         )}
-        <CustomOrderForm onSubmit={handleSubmit} loading={loading} />
+        <CustomOrderForm 
+          onSubmit={handleSubmit} 
+          loading={loading}
+          initialCustomerName={userName} // Pass the user's name to the form
+        />
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { auth, db } from "@/lib/firebase"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
+import type { UserRole } from "@/types/auth"
 
 const LoginForm = () => {
   const router = useRouter()
@@ -40,28 +41,37 @@ const LoginForm = () => {
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid))
       const userData = userDoc.data()
 
-      if (!userData) {
+      if (!userData || !userData.role) {
         throw new Error("User data not found")
       }
 
-      // Store role in localStorage (you might want to use a more secure method in production)
-      localStorage.setItem('userRole', userData.role)
+      const role = userData.role as UserRole
+
+      // Store role in localStorage
+      localStorage.setItem('userRole', role)
       localStorage.setItem('isAuthenticated', 'true')
 
       // Redirect based on role
-      switch(userData.role) {
+      switch(role) {
         case 'admin':
           router.push('/admin/dashboard')
           break
         case 'tailor':
           router.push('/tailor/dashboard')
           break
+        case 'customer':
+          router.push('/gallery')
+          break
         default:
-          router.push('/login')
           setError("Invalid user role")
+          localStorage.removeItem('userRole')
+          localStorage.removeItem('isAuthenticated')
       }
     } catch (error: any) {
-      setError(error.message)
+      console.error(error)
+      setError("Invalid email or password")
+      localStorage.removeItem('userRole')
+      localStorage.removeItem('isAuthenticated')
     } finally {
       setLoading(false)
     }

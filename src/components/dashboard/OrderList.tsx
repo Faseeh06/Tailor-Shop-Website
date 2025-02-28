@@ -15,13 +15,14 @@ interface Order {
   itemType: string
   specifications: string
   price: string
-  deadline: string
+
   garmentType: string
   fabricChoice: string
   customInstructions: string
   preferredDeliveryDate: string
   estimatedBudget: string
   imageUrl?: string
+  orderNumber: string
 }
 
 interface OrderListProps {
@@ -68,9 +69,10 @@ const OrderList = ({ orders, onStatusChange }: OrderListProps) => {
           {orders.map((order) => (
             <tr key={order.id}>
               <td className="px-6 py-4 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
                 <div className="text-sm font-medium text-gray-900">{order.customerName}</div>
                 <div className="text-sm text-gray-500">Order Date: {order.orderDate}</div>
-                <div className="text-sm text-gray-500">Deadline: {order.deadline}</div>
+                <p className="text-sm text-gray-500">Delivery by: {order.preferredDeliveryDate}</p>
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm text-gray-900">{order.itemType}</div>
@@ -115,9 +117,7 @@ const OrderList = ({ orders, onStatusChange }: OrderListProps) => {
                       className="w-20 h-20 object-cover rounded mt-2"
                     />
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Delivery by: {order.preferredDeliveryDate}
-                  </p>
+                  
                 </div>
               </td>
             </tr>

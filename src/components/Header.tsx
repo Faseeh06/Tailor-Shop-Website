@@ -28,7 +28,7 @@ const Header = () => {
     switch(userRole) {
       case 'admin': return '/admin/dashboard'
       case 'tailor': return '/tailor/dashboard'
-      default: return '/customer/dashboard'
+      default: return '/gallery'
     }
   }
 

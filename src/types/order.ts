@@ -1,17 +1,27 @@
 export interface Measurements {
   chest: string;
   waist: string;
+  hips: string;
   shoulders: string;
+  sleeves: string;
+  length: string;
+  neck: string;
 }
 
 export interface Order {
-  id: number;
+  id?: string;
+  orderNumber: string;  // Add this line
   customerName: string;
+  customerEmail: string;
+  customerId: string;
   orderDate: string;
-  status: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  imageUrl?: string;
+  garmentType: string;
+  fabricType: string;
+  color: string;
   measurements: Measurements;
-  itemType: string;
-  specifications: string;
-  price: string;
-  deadline: string;
+  specialInstructions?: string;
+  estimatedBudget: string;
+  preferredDeliveryDate: string;
 }
