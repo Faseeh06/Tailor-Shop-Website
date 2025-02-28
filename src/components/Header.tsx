@@ -1,27 +1,53 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
-import { getUserRole, isAuthenticated, logout } from "@/utils/auth"
 import { useRouter } from "next/navigation"
+import { logout } from "@/utils/auth"
+import { useAuth } from "@/context/AuthContext"
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
-  const [authenticated, setAuthenticated] = useState(false)
-  const [userRole, setUserRole] = useState<string | null>(null)
   const router = useRouter()
+  const { isAuthenticated, userRole, updateAuthState } = useAuth()
+  const menuRef = useRef<HTMLDivElement>(null)
 
+  // Close menu when clicking outside
   useEffect(() => {
-    setAuthenticated(isAuthenticated())
-    setUserRole(getUserRole())
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setUserMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleLogout = () => {
-    logout()
-    setAuthenticated(false)
-    setUserRole(null)
+
+
+  const handleLogout = async () => {
+    await logout()
+    await updateAuthState()
     router.push('/login')
+  }
+
+  const getMenuItems = () => {
+    const baseItems = [
+      { label: 'Gallery', href: '/gallery' },
+    ]
+
+    if (!isAuthenticated || userRole !== 'admin') {
+      return [
+        { label: 'Home', href: '/' },
+        ...baseItems,
+        { label: 'Custom Order', href: '/custom-order' },
+        { label: 'Order Status', href: '/order-status' },
+      ]
+    }
+
+    return baseItems // Admin only sees Gallery
   }
 
   const getDashboardLink = () => {
@@ -57,27 +83,24 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="nav-link">
-              Home
-            </Link>
-            <Link href="/gallery" className="nav-link">
-              Gallery
-            </Link>
-            <Link href="/custom-order" className="nav-link">
-              Custom Order
-            </Link>
-            <Link href="/reservations" className="nav-link">
-              Reservations
-            </Link>
+            {getMenuItems().map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="nav-link"
+              >
+                {item.label}
+              </Link>
+            ))}
             
-            {authenticated ? (
-              <div className="relative">
+            {isAuthenticated ? (
+              <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setUserMenu(!userMenu)}
                   className="flex items-center space-x-1 text-gray-700 hover:text-blue-600"
                 >
                   <span>Account</span>
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className={`w-4 h-4 transition-transform ${userMenu ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
@@ -90,12 +113,7 @@ const Header = () => {
                     >
                       Dashboard
                     </Link>
-                    <Link
-                      href="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Profile
-                    </Link>
+                    
                     <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -128,27 +146,23 @@ const Header = () => {
         {isOpen && (
           <div className="md:hidden py-4">
             <div className="flex flex-col space-y-4">
-              <Link href="/" className="mobile-nav-link">
-                Home
-              </Link>
-              <Link href="/gallery" className="mobile-nav-link">
-                Gallery
-              </Link>
-              <Link href="/custom-order" className="mobile-nav-link">
-                Custom Order
-              </Link>
-              <Link href="/reservations" className="mobile-nav-link">
-                Reservations
-              </Link>
+              {getMenuItems().map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="mobile-nav-link"
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
               
-              {authenticated ? (
+              {isAuthenticated ? (
                 <>
                   <Link href={getDashboardLink()} className="mobile-nav-link">
                     Dashboard
                   </Link>
-                  <Link href="/profile" className="mobile-nav-link">
-                    Profile
-                  </Link>
+                  
                   <button
                     onClick={handleLogout}
                     className="text-left px-4 py-2 text-gray-600 hover:text-blue-600"

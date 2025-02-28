@@ -63,21 +63,13 @@ export default function CustomOrder() {
         return newNumber
       })
 
-      // Handle image upload
-      let imageUrl = null
-      if (formData.imageFile) {
-        const imageRef = ref(storage, `orderImages/${auth.currentUser.uid}/${Date.now()}-${formData.imageFile.name}`)
-        await uploadBytes(imageRef, formData.imageFile)
-        imageUrl = await getDownloadURL(imageRef)
-      }
-
-      // Prepare order data
+      // Prepare order data - now using imageUrl directly
       const orderData = {
         orderNumber: `Order No ${orderNumber}`,
         customerName: userName || formData.customerName, // Use userName if available, fallback to form data
         customerEmail: auth.currentUser.email,
         customerId: auth.currentUser.uid,
-        imageUrl,
+        imageUrl: formData.imageUrl,
         garmentType: formData.garmentType,
         fabricType: formData.fabricType,
         color: formData.color,

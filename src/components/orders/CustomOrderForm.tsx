@@ -1,6 +1,6 @@
 "use client"
 
-import { ChangeEvent, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
 interface CustomOrderFormProps {
@@ -9,9 +9,9 @@ interface CustomOrderFormProps {
   initialCustomerName?: string
 }
 
-const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading, initialCustomerName = "" }) => {
-  const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+const CustomOrderForm = ({ onSubmit, loading, initialCustomerName = "" }: CustomOrderFormProps) => {
+  const [imageUrl, setImageUrl] = useState("")
+  const [isValidImage, setIsValidImage] = useState(true)
   const [formData, setFormData] = useState({
     customerName: initialCustomerName,
     measurements: {
@@ -40,15 +40,18 @@ const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading, in
     }
   }, [initialCustomerName])
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setSelectedImage(file)
-      setImagePreview(URL.createObjectURL(file))
-    }
+  const validateImageUrl = (url: string) => {
+    if (!url) return true // Empty URL is valid
+    return url.match(/\.(jpeg|jpg|gif|png)$/) != null
   }
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value
+    setImageUrl(url)
+    setIsValidImage(validateImageUrl(url))
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     
     if (name.includes('.')) {
@@ -77,6 +80,11 @@ const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading, in
       return
     }
 
+    if (imageUrl && !validateImageUrl(imageUrl)) {
+      alert('Please enter a valid image URL (must end with .jpg, .jpeg, .png, or .gif)')
+      return
+    }
+
     // Validate measurements
     const measurementValues = Object.values(formData.measurements)
     if (measurementValues.some(value => !value)) {
@@ -84,13 +92,12 @@ const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading, in
       return
     }
 
-    // Prepare data for submission
+    // Submit data with image URL
     const submitData = {
       ...formData,
       orderDate: new Date().toISOString(),
-      imageFile: selectedImage,
+      imageUrl: imageUrl || '/images/no-image.png', // Use default if no URL provided
       status: 'pending',
-      // Ensure measurements are strings
       measurements: Object.entries(formData.measurements).reduce((acc, [key, value]) => ({
         ...acc,
         [key]: String(value)
@@ -298,64 +305,34 @@ const CustomOrderForm: React.FC<CustomOrderFormProps> = ({ onSubmit, loading, in
         </div>
       </div>
       
-      {/* Reference Image */}
+      {/* Reference Image URL Section */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-700">Reference Image</h3>
-        <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-          {imagePreview ? (
-            <div className="space-y-4">
-              <div className="relative h-64 w-full max-w-md mx-auto">
-                <Image 
-                  src={imagePreview} 
-                  alt="Reference image preview"
-                  fill
-                  style={{ objectFit: 'contain' }}
-                  className="rounded-md"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedImage(null)
-                  setImagePreview(null)
-                }}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Remove Image
-              </button>
-            </div>
-          ) : (
-            <div>
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <p className="mt-1 text-sm text-gray-500">Upload a reference image for your custom design</p>
-              <div className="mt-4">
-                <label
-                  htmlFor="image-upload"
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
-                >
-                  Choose File
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Image URL (Optional)
+          </label>
+          <input
+            type="text"
+            value={imageUrl}
+            onChange={handleImageUrlChange}
+            placeholder="https://example.com/image.jpg"
+            className={`w-full px-4 py-2 border rounded-md ${!isValidImage ? 'border-red-500' : 'border-gray-300'}`}
+          />
+          {!isValidImage && (
+            <p className="text-red-500 text-sm mt-1">
+              Please enter a valid image URL (must end with .jpg, .jpeg, .png, or .gif)
+            </p>
+          )}
+          {imageUrl && isValidImage && (
+            <div className="mt-4 relative h-64 w-full max-w-md mx-auto">
+              <Image
+                src={imageUrl}
+                alt="Reference image preview"
+                fill
+                className="object-contain rounded-md"
+                onError={() => setIsValidImage(false)}
+              />
             </div>
           )}
         </div>

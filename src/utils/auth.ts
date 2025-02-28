@@ -15,26 +15,31 @@ export const isAuthenticated = () => {
 }
 
 export const checkAuthorization = async (allowedRoles: UserRole[]) => {
-  const userRole = getUserRole()
-  if (!userRole || !auth.currentUser) return false
+  return new Promise((resolve) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        resolve(false)
+        return
+      }
 
-  try {
-    // Verify role in Firestore
-    const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid))
-    const userData = userDoc.data()
-    
-    if (!userData || userData.role !== userRole) {
-      // Role mismatch, clear local storage
-      localStorage.removeItem('userRole')
-      localStorage.removeItem('isAuthenticated')
-      return false
-    }
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (!userDoc.exists()) {
+          resolve(false)
+          return
+        }
 
-    return allowedRoles.includes(userRole)
-  } catch (error) {
-    console.error('Authorization check failed:', error)
-    return false
-  }
+        const userRole = userDoc.data().role
+        resolve(allowedRoles.includes(userRole))
+      } catch (error) {
+        console.error('Error checking authorization:', error)
+        resolve(false)
+      }
+    })
+
+    // Cleanup subscription
+    return () => unsubscribe()
+  })
 }
 
 export const logout = async () => {

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
@@ -10,24 +10,24 @@ import { CheckCircle } from 'lucide-react'
 import { Order } from '@/types/order'
 
 interface OrderConfirmationProps {
-  params: { orderId: string }
+  params: Promise<{ orderId: string }>
 }
 
 export default function OrderConfirmation({ params }: OrderConfirmationProps) {
   const router = useRouter()
+  const { orderId } = use(params)
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   useEffect(() => {
-    const orderId = params?.orderId
-    if (!orderId) {
-      setError("Order ID not found")
-      setLoading(false)
-      return
-    }
-
     const fetchOrder = async () => {
+      if (!orderId) {
+        setError("Order ID not found")
+        setLoading(false)
+        return
+      }
+
       try {
         const orderDoc = await getDoc(doc(db, "orders", orderId))
         if (!orderDoc.exists()) {
@@ -43,7 +43,7 @@ export default function OrderConfirmation({ params }: OrderConfirmationProps) {
     }
 
     fetchOrder()
-  }, [params])
+  }, [orderId])
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
