@@ -37,7 +37,7 @@ export default function OrderDetails({ params }: OrderDetailsProps) {
     fetchOrder()
   }, [orderId])
 
-  const handleStatusUpdate = async (newStatus: string) => {
+  const handleStatusUpdate = async (newStatus: "pending" | "in-progress" | "completed") => {
     try {
       await updateDoc(doc(db, "orders", orderId), {
         status: newStatus,
@@ -72,7 +72,7 @@ export default function OrderDetails({ params }: OrderDetailsProps) {
           </div>
           <select
             value={order.status}
-            onChange={(e) => handleStatusUpdate(e.target.value)}
+            onChange={(e) => handleStatusUpdate(e.target.value as "pending" | "in-progress" | "completed")}
             className={`px-4 py-2 rounded-md border text-sm ${
               order.status === 'completed' ? 'bg-green-50 text-green-700' :
               order.status === 'in-progress' ? 'bg-blue-50 text-blue-700' :
