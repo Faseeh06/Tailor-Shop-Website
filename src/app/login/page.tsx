@@ -6,6 +6,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { auth } from '@/lib/firebase'
 import { signInWithEmailAndPassword } from 'firebase/auth'
+import { getDoc, doc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 export default function Login() {
   const router = useRouter()
@@ -21,9 +23,19 @@ export default function Login() {
     setError("")
 
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
       await updateAuthState()
-      router.push('/')
+      
+      // Get user data to check role
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid))
+      const userRole = userDoc.data()?.role
+
+      // Redirect based on role
+      if (userRole === 'admin') {
+        router.push('/admin/dashboard')
+      } else {
+        router.push('/') // Regular users go to landing page
+      }
     } catch (error: any) {
       setError(error.message)
     } finally {

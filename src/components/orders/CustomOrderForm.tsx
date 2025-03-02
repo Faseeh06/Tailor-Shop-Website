@@ -40,6 +40,23 @@ const CustomOrderForm = ({ onSubmit, loading, initialCustomerName = "" }: Custom
     }
   }, [initialCustomerName])
 
+  useEffect(() => {
+    // Check for pre-filled data from gallery
+    const prefilledData = localStorage.getItem('prefilledOrder')
+    if (prefilledData) {
+      const data = JSON.parse(prefilledData)
+      setImageUrl(data.imageUrl)
+      setFormData(prev => ({
+        ...prev,
+        garmentType: data.garmentType || '',
+        estimatedBudget: data.price || '', // Use the price directly here
+        specialInstructions: `Based on design: ${data.title}\n${data.description}\n\n`,
+      }))
+      // Clear the stored data after using it
+      localStorage.removeItem('prefilledOrder')
+    }
+  }, [])
+
   const validateImageUrl = (url: string) => {
     if (!url) return true // Empty URL is valid
     return url.match(/\.(jpeg|jpg|gif|png)$/) != null
@@ -114,6 +131,20 @@ const CustomOrderForm = ({ onSubmit, loading, initialCustomerName = "" }: Custom
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+      {/* Show image preview only in one place - at the top */}
+      {imageUrl && (
+        <div className="mb-6">
+          <p className="text-sm text-gray-500 mb-2">Selected Design Reference:</p>
+          <div className="relative h-64 w-full max-w-md mx-auto">
+            <Image
+              src={imageUrl}
+              alt="Selected design"
+              fill
+              className="object-contain rounded-md"
+            />
+          </div>
+        </div>
+      )}
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Custom Order Details</h2>
       
       {/* Customer Information */}
@@ -323,17 +354,6 @@ const CustomOrderForm = ({ onSubmit, loading, initialCustomerName = "" }: Custom
             <p className="text-red-500 text-sm mt-1">
               Please enter a valid image URL (must end with .jpg, .jpeg, .png, or .gif)
             </p>
-          )}
-          {imageUrl && isValidImage && (
-            <div className="mt-4 relative h-64 w-full max-w-md mx-auto">
-              <Image
-                src={imageUrl}
-                alt="Reference image preview"
-                fill
-                className="object-contain rounded-md"
-                onError={() => setIsValidImage(false)}
-              />
-            </div>
           )}
         </div>
       </div>

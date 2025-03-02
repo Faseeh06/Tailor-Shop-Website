@@ -9,6 +9,8 @@ import { getUserRole } from '@/utils/auth'
 import Image from 'next/image'
 import { Trash2 } from 'lucide-react'
 import AddArticleModal from './gallery/AddArticleModal'
+import { useRouter } from 'next/navigation'
+import { useSearchStore } from '@/store/searchStore'
 
 const storage = getStorage()
 
@@ -18,6 +20,10 @@ const GalleryGrid = () => {
   const [isAdmin, setIsAdmin] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [addingArticle, setAddingArticle] = useState(false)
+
+  const { searchQuery, sortBy, priceRange } = useSearchStore()
+
+  const router = useRouter()
 
   useEffect(() => {
     setIsAdmin(getUserRole() === 'admin')
@@ -76,6 +82,68 @@ const GalleryGrid = () => {
     }
   }
 
+  const handleOrderThis = (item: GalleryItem) => {
+    // Store item details in localStorage to pass to custom order page
+    localStorage.setItem('prefilledOrder', JSON.stringify({
+      imageUrl: item.imageUrl,
+      garmentType: item.category,
+      estimatedBudget: item.price.toString(), // Ensure price is included
+      price: item.price,  // Include both price and estimatedBudget
+      description: item.description,
+      title: item.title
+    }))
+    router.push('/custom-order')
+  }
+
+  // Filter and sort items
+  const getFilteredAndSortedItems = () => {
+    let filtered = items.filter(item => {
+      // Search filter
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase()
+        if (!item.title.toLowerCase().includes(searchLower) &&
+            !item.description.toLowerCase().includes(searchLower) &&
+            !item.price.toString().includes(searchLower)) {
+          return false
+        }
+      }
+
+      // Price range filter
+      if (priceRange) {
+        const price = Number(item.price)
+        const [min, max] = priceRange.split('-').map(Number)
+        if (max) {
+          if (price < min || price > max) return false
+        } else {
+          // For "5000+" case
+          if (price < min) return false
+        }
+      }
+
+      return true
+    })
+
+    // Sort items
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case 'price-low':
+            return Number(a.price) - Number(b.price)
+          case 'price-high':
+            return Number(b.price) - Number(a.price)
+          case 'newest':
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          default:
+            return 0
+        }
+      })
+    }
+
+    return filtered
+  }
+
+  const filteredItems = getFilteredAndSortedItems()
+
   if (loading) return <div>Loading...</div>
 
   return (
@@ -93,22 +161,15 @@ const GalleryGrid = () => {
         </div>
       )}
 
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <p className="text-gray-500 mb-4">No articles added yet.</p>
-          {isAdmin && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              type="button"
-              className="bg-[#B17457] text-white px-4 py-2 rounded-md hover:bg-[#9A6349]"
-            >
-              Add New Article
-            </button>
-          )}
+      {filteredItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center min-h-[200px]">
+          <p className="text-gray-500">
+            {searchQuery ? 'No items match your search' : 'No items available'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((item) => (
+          {filteredItems.map((item) => (
             <div key={item.id} className="relative bg-white rounded-lg shadow-md overflow-hidden">
               <div className="relative h-64">
                 <Image
@@ -130,6 +191,14 @@ const GalleryGrid = () => {
                 <h3 className="text-lg font-semibold">{item.title}</h3>
                 <p className="text-gray-600 mt-1">{item.description}</p>
                 <p className="text-[#B17457] font-semibold mt-2">₹{item.price}</p>
+                
+                {/* Add Order Button */}
+                <button
+                  onClick={() => handleOrderThis(item)}
+                  className="mt-4 w-full bg-[#B17457] text-white px-4 py-2 rounded-md hover:bg-[#9A6349] transition-colors"
+                >
+                  Order This Design
+                </button>
               </div>
             </div>
           ))}

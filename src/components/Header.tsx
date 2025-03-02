@@ -34,28 +34,36 @@ const Header = () => {
   }
 
   const getMenuItems = () => {
-    const baseItems = [
-      { label: 'Gallery', href: '/gallery' },
-    ]
-
-    if (!isAuthenticated || userRole !== 'admin') {
+    // Show different menu items based on role
+    if (userRole === 'tailor') {
       return [
-        { label: 'Home', href: '/' },
-        ...baseItems,
-        { label: 'Custom Order', href: '/custom-order' },
-        { label: 'Order Status', href: '/order-status' },
+        { label: 'Dashboard', href: '/tailor/dashboard' },
+        { label: 'Reservations', href: '/tailor/reservations' },
       ]
     }
 
-    return baseItems // Admin only sees Gallery
+    if (userRole === 'admin') {
+      return [
+        { label: 'Gallery', href: '/gallery' },
+      ]
+    }
+
+    // Regular user or not authenticated
+    return [
+      { label: 'Home', href: '/' },
+      { label: 'Gallery', href: '/gallery' },
+      { label: 'Custom Order', href: '/custom-order' },
+      { label: 'Order Status', href: '/order-status' },
+      { label: 'Reservations', href: '/reservations' },
+    ]
   }
 
-  const getDashboardLink = () => {
-    switch(userRole) {
-      case 'admin': return '/admin/dashboard'
-      case 'tailor': return '/tailor/dashboard'
-      default: return '/gallery'
-    }
+  // Remove getDashboardLink since we're handling it in menu items
+  const shouldShowDashboard = () => false // Disable dashboard in dropdown
+
+  const shouldShowProfile = () => {
+    // Only show profile for regular users
+    return isAuthenticated && userRole !== 'admin' && userRole !== 'tailor'
   }
 
   return (
@@ -107,13 +115,14 @@ const Header = () => {
                 
                 {userMenu && (
                   <div className="absolute right-0 mt-2 w-48 py-2 bg-white rounded-md shadow-xl z-50">
-                    <Link
-                      href={getDashboardLink()}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Dashboard
-                    </Link>
-                    
+                    {shouldShowProfile() && (
+                      <Link
+                        href="/profile"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Profile
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -159,10 +168,14 @@ const Header = () => {
               
               {isAuthenticated ? (
                 <>
-                  <Link href={getDashboardLink()} className="mobile-nav-link">
-                    Dashboard
-                  </Link>
-                  
+                  {shouldShowProfile() && (
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Profile
+                    </Link>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="text-left px-4 py-2 text-gray-600 hover:text-blue-600"
